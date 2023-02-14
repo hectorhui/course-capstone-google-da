@@ -1,0 +1,136 @@
+---
+title: "bellabeat-case-study"
+author: "Hein Htet Naing (Hector)"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+### Objective (Ask):
+
+To analyze smart device fitness trackers from the current market to discover the trend of consumer’s behavior to recommend suitable marketing strategy from the findings on one of the bellabeat products to the CEO.
+
+
+### Data source (Prepare):
+
+The data is directly downloaded from [Link](https://www.kaggle.com/datasets/arashnic/fitbit). The data is a record logs of 30 Fitbit users’ activities from 03/12/2016 to 05/12/2016. A total of 18 CSV files split by each activity type, inside each CSV files, activity  logs for each user has recorded in hourly or daily depending of the activities.
+
+The data set is provided a Kaggle user [Möbius](https://www.kaggle.com/arashnic) who has a significant contribution to the Kaggle platform.
+
+Credit: The usage of this data is only for capstone project without any business conduct, only for educational purposes. 
+
+#### Additional Data Source (Some idea to add, but lack of data source for case study)
+- Marketing channel for fitness tracker? 
+- Geolocaiton of fitness tracker usage?
+- Fitness tracker user income data?
+
+
+### Process 
+- Load all the data
+- Formate the date data in each file to have same formate 
+- To merge data across differnet csv files by ID (the user) and the date
+
+```{r , echo=FALSE}
+
+# load the data
+activities_data = read_csv('~/hector/da-r/case-study/fitbit-data/dailyActivity_merged.csv')
+calories_data = read_csv('~/hector/da-r/case-study/fitbit-data/hourlyCalories_merged.csv')
+weight_data = read_csv('~/hector/da-r/case-study/fitbit-data/weightLogInfo_merged.csv')
+intensities = read_csv('~/hector/da-r/case-study/fitbit-data/hourlyIntensities_merged.csv')
+sleep = read_csv('~/hector/da-r/case-study/fitbit-data/sleepDay_merged.csv')
+
+
+# data formating 
+intensities$ActivityHour=as.POSIXct(intensities$ActivityHour, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+intensities$time <- format(intensities$ActivityHour, format = "%H:%M:%S")
+intensities$date <- format(intensities$ActivityHour, format = "%m/%d/%y")
+
+
+calories_data$ActivityHour=as.POSIXct(calories_data$ActivityHour, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+calories_data$time <- format(calories_data$ActivityHour, format = "%H:%M:%S")
+calories_data$date <- format(calories_data$ActivityHour, format = "%m/%d/%y")
+
+
+activities_data$ActivityDate=as.POSIXct(activities_data$ActivityDate, format="%m/%d/%Y", tz=Sys.timezone())
+activities_data$date <- format(activities_data$ActivityDate, format = "%m/%d/%y")
+
+
+sleep$SleepDay=as.POSIXct(sleep$SleepDay, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+sleep$date <- format(sleep$SleepDay, format = "%m/%d/%y")
+
+weight_data$Date=as.POSIXct(weight_data$Date, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+weight_data$Date=as.POSIXct(weight_data$Date,  format = "%m/%d/%y")
+```
+
+### Analyse 
+- Find the average step
+```{r , echo=FALSE}
+activities_data %>%  
+  select(TotalSteps,
+         TotalDistance,
+         SedentaryMinutes, Calories) %>%
+  summary()
+
+# explore num of active minutes per category
+activities_data %>%
+  select(VeryActiveMinutes, FairlyActiveMinutes, LightlyActiveMinutes) %>%
+  summary()
+
+```
+- Average step taken:  7638 steps
+- Average Veryactive time in minutes: 21.16 minutes 
+- Averag SedentaryMinutes: 991.2 minutes (around 16.52 hrs)
+- `On average peole are on sendetary too much around 16.52 hrs in a day, we need to make people to be more active`
+
+```{r , echo=FALSE}
+# sleep
+sleep %>%
+  select(TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) %>%
+  summary()
+# weight
+weight_data %>%
+  select(WeightKg, BMI) %>%
+  summary()
+```
+- Average sleep: 419.5 (arond 7 hrs)
+- `People are failry having around enough sleep around 7hrs which is a recomended hours for adult`
+
+### Share
+
+```{r , echo=FALSE}
+ggplot(data=activities_data, aes(x=TotalSteps, y=Calories)) + 
+  geom_point() + geom_smooth() + labs(title="Total Steps vs. Calories")
+```
+
+- From the graph above we can tell that, there is postive correlationship between Step and Calories, when ppl walk more, the more calories they burn 
+
+```{r , echo=FALSE}
+merged_data <- merge(activities_data, sleep, by=c('Id', 'date')) %>%
+  merge(calories_data, by=c('Id', 'date'))
+ggplot(data=merged_data, aes(x=TotalMinutesAsleep, y= TotalSteps)) + 
+  geom_point() + geom_smooth() + labs(title="Total Steps vs. Sleep")
+```
+- No direct co-relationship between sleep and step taken, assumpiton here is that when we walked more, we can sleep longer, however the data given didn't show that 
+
+``` {r , echo=FALSE}
+
+int_new <- intensities %>%
+  group_by(time) %>%
+  drop_na() %>%
+  summarise(mean_total_int = mean(TotalIntensity))
+ggplot(data=int_new, aes(x=time, y=mean_total_int)) + geom_histogram(stat = "identity", fill='darkblue') +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title="Average Total Intensity vs. Time")
+```
+
+- People are more acive between 9am to 12 and in the evening from 16:00 to 19, people are likely to be communting to work or school during these time
+
+### Act
+- Bela can motivate poople to be more active by sending notification through the app, the best time to do that will around the time when people are not so active, send the notificaiton around the right time
+- Positive relation between step and calories burnt, thus we can the more people walk the more they are likely to burn more calories
